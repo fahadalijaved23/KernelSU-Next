@@ -25,6 +25,15 @@
 
 #define KSU_PATCH_TEXT_FLUSH_DCACHE 1
 #define KSU_PATCH_TEXT_FLUSH_ICACHE 2
+/* Opt in to the Samsung RKP branch-patch route (arm64 only). Only safe for
+ * hooks that do NOT need to invoke the original function from inside the
+ * hook body - the syscall-table dispatcher install is the canonical use.
+ * Hooks like selinux_hide/my_write_access that call `orig_fn(...)` must NOT
+ * set this flag, or branch-patching will leave the saved orig pointer
+ * pointing at a function whose first instruction jumps straight back into
+ * the hook (stack-overflow recursion). On non-Samsung the flag is harmless;
+ * ksu_rkp_key stays off and the stock patch path runs regardless. */
+#define KSU_PATCH_TEXT_RKP_BRANCH 4
 
 unsigned long phys_from_virt(unsigned long addr, int *err);
 int ksu_patch_text(void *dst, void *src, size_t len, int flags);

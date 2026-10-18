@@ -194,22 +194,30 @@ static int ksu_patch_text_cb(void *arg)
 
 int ksu_patch_text(void *dst, void *src, size_t len, int flags)
 {
-    /* Samsung RKP traps any kernel-text write to sys_call_table (and other
-     * rodata regions it protects) at EL2, so our stop_machine+fixmap path
-     * returns -EFAULT and the dispatcher install fails. Divert pointer-sized
-     * writes (which is exactly how every function-pointer slot gets patched -
-     * syscall table, LSM hook slots, selinux fops, etc.) into the branch-patch
-     * route that writes into the TARGET function's own .text preamble via
-     * aarch64_insn_patch_text. That's the fixmap/stop_machine path kprobes
-     * use, which RKP sanctions: the slot still points at its original symbol,
-     * but the first thing that symbol does is `B ksu_syscall_dispatcher` (or
-     * whichever stub we installed), so the caller still ends up in our code.
+    /* Samsung RKP traps any kernel-text write to sys_call_table at EL2, so
+     * our stop_machine+fixmap path returns -EFAULT and the dispatcher install
+     * fails. Divert into the branch-patch route (writes into the TARGET
+     * function's own .text preamble via aarch64_insn_patch_text, the kprobe
+     * text-poke path RKP sanctions): the slot still points at its original
+     * symbol, but the first instruction of that symbol becomes
+     * `B ksu_syscall_dispatcher`, so BLR sys_call_table[slot] still ends up
+     * in our code.
+     *
+     * This divert changes semantics: the slot is not written, so a saved
+     * "original pointer" still points at the (now branch-patched) original
+     * function. Hooks that call that saved pointer to invoke the original
+     * body (selinux_hide my_write_access -> orig_access_write, etc.) would
+     * recurse back into themselves. We therefore only honor the divert for
+     * callers that opt in with KSU_PATCH_TEXT_RKP_BRANCH - specifically the
+     * dispatcher install, whose dispatcher does not call sys_ni_syscall back.
      *
      * ksu_rkp_key only arms on Samsung (rkp_jb_init in compat/rkp.c flips it
      * only when find_kernel_symbol_exact("rkp_started") succeeds); on every
      * other kernel this is a NOP jump via static_branch_unlikely and the
      * normal stop_machine path runs unchanged. */
-    if (static_branch_unlikely(&ksu_rkp_key) && len == sizeof(void *))
+    if ((flags & KSU_PATCH_TEXT_RKP_BRANCH) &&
+        static_branch_unlikely(&ksu_rkp_key) &&
+        len == sizeof(void *))
         return ksu_rkp_branch_patch(dst, src);
 
     struct patch_text_info info = {

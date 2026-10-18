@@ -39,7 +39,7 @@ static int patch_syscall_table(int nr, syscall_fn_t fn)
             (unsigned long)READ_ONCE(ksu_syscall_table[nr]), (unsigned long)fn);
 
     if (ksu_patch_text(&ksu_syscall_table[nr], &fn, sizeof(fn),
-                       KSU_PATCH_TEXT_FLUSH_DCACHE)) {
+                       KSU_PATCH_TEXT_FLUSH_DCACHE | KSU_PATCH_TEXT_RKP_BRANCH)) {
         pr_err("patch syscall %d failed\n", nr);
         return -EIO;
     }
