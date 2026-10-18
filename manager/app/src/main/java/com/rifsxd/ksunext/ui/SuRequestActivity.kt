@@ -73,7 +73,7 @@ class SuRequestActivity : ComponentActivity() {
 
         setContent {
             KernelSUExpressiveDarkTheme(
-                amoled = getSharedPreferences("settings", MODE_PRIVATE)
+                amoledMode = getSharedPreferences("settings", MODE_PRIVATE)
                     .getBoolean("enable_amoled", false),
             ) {
                 SuRequestScreen(
