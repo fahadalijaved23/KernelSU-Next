@@ -5,6 +5,7 @@
 #include <asm/syscall.h>
 #include <linux/ptrace.h>
 #include <linux/slab.h>
+#include <linux/cred.h>
 #include <trace/events/syscalls.h>
 
 #include <linux/version.h>
@@ -103,8 +104,21 @@ static void ksu_sys_enter_handler(void *data, struct pt_regs *regs, long id)
 #endif
         return;
 
-    if (ksu_dispatcher_nr < 0)
+    if (ksu_dispatcher_nr < 0) {
+        /* Samsung fallback: the dispatcher could not be installed (RKP blocked
+         * the syscall-table write), so there is no way to intercept a hooked
+         * syscall's return. Still invoke watch-type handlers inline before the
+         * real syscall runs so the manager can get its driver fd installed via
+         * setresuid. Side effects (fd install, task-tracepoint flag, kernel
+         * umount gating) persist on the current task across the syscall; the
+         * real syscall then runs normally and finishes with the new uid. */
+        if (id == __NR_setresuid && ksu_has_syscall_hook(id)) {
+            struct pt_regs *current_regs = task_pt_regs(current);
+            uid_t new_uid = (uid_t)PT_REGS_SYSCALL_PARM1(current_regs);
+            ksu_handle_setresuid(current_uid().val, new_uid);
+        }
         return;
+    }
 
     if (ksu_has_syscall_hook(id)) {
         struct pt_regs *current_regs = task_pt_regs(current);
