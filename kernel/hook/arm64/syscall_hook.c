@@ -219,8 +219,17 @@ void __init ksu_syscall_hook_init(void)
     }
 
     ksu_dispatcher_nr = ni_slot;
-    ksu_syscall_table_hook(ksu_dispatcher_nr,
-                           (syscall_fn_t)ksu_syscall_dispatcher, NULL);
+    if (ksu_syscall_table_hook(ksu_dispatcher_nr,
+                               (syscall_fn_t)ksu_syscall_dispatcher, NULL)) {
+        /* Patch failed (e.g. Samsung RKP writes to sys_call_table trap at EL2).
+         * Must disable the dispatch mechanism, otherwise sys_enter hooks will
+         * redirect syscalls through an unpatched slot that still points at
+         * sys_ni_syscall and every hooked syscall (including execve) returns
+         * -ENOSYS, wedging the entire userspace. */
+        pr_err("dispatcher install failed at slot %d, disabling syscall hooks\n", ksu_dispatcher_nr);
+        ksu_dispatcher_nr = -1;
+        return;
+    }
     pr_info("dispatcher installed at slot %d\n", ksu_dispatcher_nr);
 }
 

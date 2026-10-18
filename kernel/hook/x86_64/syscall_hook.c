@@ -327,8 +327,12 @@ void __init __nocfi ksu_syscall_hook_init(void)
     }
 
     ksu_dispatcher_nr = ni_slot;
-    ksu_syscall_table_hook(ksu_dispatcher_nr,
-                           (sys_call_ptr_t)ksu_syscall_dispatcher, NULL);
+    if (ksu_syscall_table_hook(ksu_dispatcher_nr,
+                               (sys_call_ptr_t)ksu_syscall_dispatcher, NULL)) {
+        pr_err("dispatcher install failed at slot %d, disabling syscall hooks\n", ksu_dispatcher_nr);
+        ksu_dispatcher_nr = -1;
+        return;
+    }
     pr_info("dispatcher installed at slot %d\n", ksu_dispatcher_nr);
 }
 
