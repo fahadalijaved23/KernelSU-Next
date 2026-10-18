@@ -39,7 +39,14 @@ fn socket_path() -> String {
 /// How long the daemon waits for the user before defaulting to deny.
 const DECISION_TIMEOUT: Duration = Duration::from_secs(60);
 
-const DEFAULT_MANAGER_PACKAGE: &str = "com.rifsxd.ksunext";
+/// Candidate manager package names tried in order. The first entry is this
+/// build's actual manager; the rest let a shared ksud binary still find a
+/// popup activity when the manager was renamed or forked.
+const CANDIDATE_MANAGER_PACKAGES: &[&str] = &[
+    "com.rifsxd.ksunext",
+    "me.weishu.kernelsu",
+    "com.sukisu.ultra",
+];
 
 type Pending = Arc<Mutex<HashMap<u64, Sender<bool>>>>;
 
@@ -48,9 +55,34 @@ fn next_reqid() -> u64 {
     COUNTER.fetch_add(1, Ordering::Relaxed)
 }
 
+fn package_installed(pkg: &str) -> bool {
+    // `pm path <pkg>` prints the APK path on success and exits 0; fails on
+    // uninstalled packages. Cheap and sufficient to pick the right manager.
+    Command::new("pm")
+        .args(["path", pkg])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .output()
+        .map(|o| o.status.success() && !o.stdout.is_empty())
+        .unwrap_or(false)
+}
+
+fn resolve_manager_package() -> String {
+    for pkg in CANDIDATE_MANAGER_PACKAGES {
+        if package_installed(pkg) {
+            info!("sudaemon: using manager package {pkg}");
+            return (*pkg).to_string();
+        }
+    }
+    let fallback = CANDIDATE_MANAGER_PACKAGES[0].to_string();
+    warn!("sudaemon: no known manager package installed; falling back to {fallback}");
+    fallback
+}
+
 fn manager_package() -> &'static str {
     static PKG: OnceLock<String> = OnceLock::new();
-    PKG.get_or_init(|| DEFAULT_MANAGER_PACKAGE.to_string())
+    PKG.get_or_init(resolve_manager_package)
 }
 
 // ---------------------------------------------------------------------------
@@ -77,6 +109,13 @@ pub fn spawn_sudaemon() -> Result<()> {
 }
 
 pub fn ensure_sudaemon_running() -> Result<()> {
+    // Avoid double-starting: if someone is already listening on the socket,
+    // leave them alone. Prevents on_post_fs_data + late_load from spawning
+    // two daemons that race on bind().
+    if UnixStream::connect(socket_path()).is_ok() {
+        info!("sudaemon already running on {}", socket_path());
+        return Ok(());
+    }
     spawn_sudaemon()
 }
 
@@ -184,10 +223,11 @@ fn handle_reply(pending: &Pending, fields: &[&str]) -> Result<()> {
 
 /// Launch the manager's popup activity for this request.
 fn launch_prompt(reqid: u64, uid: u32, pid: i32) -> Result<()> {
-    let component = format!(
-        "{}/com.rifsxd.ksunext.ui.SuRequestActivity",
-        manager_package()
-    );
+    // Use the relative-class form `pkg/.ui.SuRequestActivity`; `am start -n`
+    // expands the leading `.` to <pkg>.ui.SuRequestActivity, so this works
+    // whichever candidate manager package `manager_package()` resolves to.
+    let component = format!("{}/.ui.SuRequestActivity", manager_package());
+    info!("sudaemon: launching su prompt #{reqid} via {component} uid={uid} pid={pid}");
     let status = Command::new("am")
         .args([
             "start",

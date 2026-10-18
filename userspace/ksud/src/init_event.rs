@@ -101,6 +101,13 @@ pub fn on_post_fs_data() -> Result<()> {
         warn!("init features failed: {e}");
     }
 
+    // Start the su-request broker daemon so popup requests work on the normal
+    // (boot.img-patched) install path. DFRoot mode also starts it from
+    // late_load; both are idempotent via create_daemon's single-child guard.
+    if let Err(e) = crate::su_request::ensure_sudaemon_running() {
+        warn!("failed to start su request daemon: {e}");
+    }
+
     // execute metamodule post-fs-data script first (priority)
     if let Err(e) = metamodule::exec_stage_script("post-fs-data", wait) {
         warn!("exec metamodule post-fs-data script failed: {e}");

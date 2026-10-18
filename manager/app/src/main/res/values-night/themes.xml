@@ -7,4 +7,20 @@
 
     <style name="Theme.KernelSU.WebUI" parent="Theme.KernelSU" />
 
+    <!-- Night variant mirrors the day variant: SuRequestActivity is always
+         dark regardless of system theme, so this entry just keeps the style
+         resolver happy. -->
+    <style name="Theme.KernelSU.SuRequest" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="o_mr1">shortEdges</item>
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
+    </style>
+
 </resources>

@@ -384,7 +384,15 @@
     <string name="template_example_title">Example</string>
     <string name="template_example_description">This is an example template</string>
 
-    <string name="su_request_title">Superuser Request</string>
+    <string name="su_request_title">Superuser request</string>
+    <string name="su_request_action_full_root">Full root access</string>
+    <string name="su_request_body_format">%1$s is requesting superuser access</string>
+    <string name="su_request_uid_format">uid %1$d</string>
+    <string name="su_request_auto_deny_format">Auto-deny in %1$ds</string>
     <string name="su_request_grant">Grant</string>
     <string name="su_request_deny">Deny</string>
+    <string name="su_request_allow_once">Allow once</string>
+    <string name="su_request_allow_always">Allow always</string>
+    <string name="su_request_deny_once">Deny once</string>
+    <string name="su_request_deny_always">Deny always</string>
 </resources>

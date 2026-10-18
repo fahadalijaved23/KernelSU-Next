@@ -10,4 +10,23 @@
         <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>
     </style>
 
+    <!-- Host theme for SuRequestActivity. The Compose content draws its own
+         dark bottom-sheet surface via KernelSUExpressiveDarkTheme, so the
+         Android theme only has to be translucent AND stay out of the way of
+         the forced-dark look. Explicitly disable light status/navigation bars
+         to prevent a flash of white on the system bars when the activity
+         starts on a light-themed device. -->
+    <style name="Theme.KernelSU.SuRequest" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="o_mr1">shortEdges</item>
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
+    </style>
+
 </resources>

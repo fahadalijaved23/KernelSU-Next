@@ -598,6 +598,44 @@ pub fn run() -> Result<()> {
 
     ksucalls::setup_sigsys_handler();
 
+    // When an app without an app profile calls `su`, the kernel sucompat hook
+    // re-execs us as root with argv sanitized to an empty string and the env
+    // var `KSU_SU_REQUEST=<uid>` set. In that mode we are the request client:
+    // ask the sudaemon to show the manager popup, and on allow re-exec
+    // `/system/bin/su` so the kernel takes the normal sucompat allowlist path.
+    if let Ok(uid_str) = std::env::var("KSU_SU_REQUEST") {
+        log::info!("ksud invoked as su-request client, uid={uid_str}");
+        match uid_str.parse::<u32>() {
+            Result::Ok(uid) => match crate::su_request::request_decision(uid) {
+                Result::Ok(true) => {
+                    log::info!(
+                        "su request allowed for uid={uid}; re-executing /system/bin/su"
+                    );
+                    // Clear the env var so the next sucompat hook does not
+                    // re-enter the request path (kernel keeps envp on the
+                    // normal path).
+                    unsafe { std::env::remove_var("KSU_SU_REQUEST") };
+                    use std::os::unix::process::CommandExt;
+                    let err = std::process::Command::new("/system/bin/su").exec();
+                    log::error!("exec /system/bin/su failed: {err}");
+                    std::process::exit(1);
+                }
+                Result::Ok(false) => {
+                    log::info!("su request denied for uid={uid}");
+                    std::process::exit(0);
+                }
+                Err(e) => {
+                    log::warn!("su request failed for uid={uid}: {e:#}");
+                    std::process::exit(0);
+                }
+            },
+            Err(_) => {
+                log::warn!("invalid KSU_SU_REQUEST value: {uid_str}");
+                std::process::exit(0);
+            }
+        }
+    }
+
     // the kernel executes su with argv[0] = "su" and replace it with us
     let arg0 = std::env::args().next().unwrap_or_default();
     if arg0 == "su" || arg0.ends_with("/su") {

@@ -1,5 +1,6 @@
 package com.rifsxd.ksunext.ui
 
+import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -16,32 +17,67 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.rifsxd.ksunext.Natives
-import com.rifsxd.ksunext.ui.theme.KernelSUTheme
+import com.rifsxd.ksunext.R
+import com.rifsxd.ksunext.ui.theme.KernelSUExpressiveDarkTheme
 import com.rifsxd.ksunext.ui.util.execKsud
 
 private const val TAG = "SuRequest"
 private const val TIMEOUT_SECONDS = 30
+
+/**
+ * The decision the user picks on the SU-request bottom sheet.
+ *
+ * - [ALLOW_ONCE]: reply "allow" to this specific request; do NOT persist the
+ *   decision. The next su invocation will prompt again.
+ * - [ALLOW_ALWAYS]: reply "allow" and persist `allowSu = true` on the uid's
+ *   profile so future su calls hit the kernel allowlist directly.
+ * - [DENY_ONCE]: reply "deny" without persisting; next call prompts again.
+ * - [DENY_ALWAYS]: reply "deny" and persist `allowSu = false` so future su
+ *   calls are silently rejected.
+ */
+enum class SuDecision { ALLOW_ONCE, ALLOW_ALWAYS, DENY_ONCE, DENY_ALWAYS }
 
 class SuRequestActivity : ComponentActivity() {
 
@@ -71,14 +107,24 @@ class SuRequestActivity : ComponentActivity() {
         val (appLabel, appIcon, pkg) = resolveApp(uid)
         val appKey = pkg ?: "uid:$uid"
 
+        // Mirror MainActivity's amoled-pref read so the popup honors the same
+        // user preference as the main UI. We never let the activity follow the
+        // system dark-mode flag — the SU-request sheet is always dark.
+        val amoled = try {
+            getSharedPreferences("settings", Context.MODE_PRIVATE)
+                .getBoolean("enable_amoled", false)
+        } catch (_: Exception) {
+            false
+        }
+
         setContent {
-            KernelSUTheme {
+            KernelSUExpressiveDarkTheme(amoledMode = amoled) {
                 SuRequestScreen(
                     appLabel = appLabel,
                     packageName = appKey,
                     appIcon = appIcon,
-                    onGrant = { decide(true, appKey) },
-                    onDeny = { decide(false, appKey) },
+                    uid = uid,
+                    onDecision = { d -> decide(d, appKey) },
                 )
             }
         }
@@ -128,9 +174,12 @@ class SuRequestActivity : ComponentActivity() {
         appLabel: String,
         packageName: String,
         appIcon: Drawable?,
-        onGrant: () -> Unit,
-        onDeny: () -> Unit,
+        uid: Int,
+        onDecision: (SuDecision) -> Unit,
     ) {
+        val cs = MaterialTheme.colorScheme
+        val typo = MaterialTheme.typography
+
         var countdown by remember { mutableIntStateOf(TIMEOUT_SECONDS) }
         val progress by animateFloatAsState(
             targetValue = countdown.toFloat() / TIMEOUT_SECONDS,
@@ -145,7 +194,7 @@ class SuRequestActivity : ComponentActivity() {
                     countdown = (remaining / 1000).toInt()
                 }
                 override fun onFinish() {
-                    onDeny()
+                    onDecision(SuDecision.DENY_ONCE)
                 }
             }.start()
             onDispose { timer?.cancel() }
@@ -154,65 +203,72 @@ class SuRequestActivity : ComponentActivity() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f))
+                // Deeper scrim than before - part of the "no longer too bright"
+                // feel.
+                .background(cs.scrim.copy(alpha = 0.60f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) { },
-            contentAlignment = Alignment.BottomCenter
+                    indication = null,
+                ) { /* swallow scrim taps so an outside tap cannot auto-deny */ },
+            contentAlignment = Alignment.BottomCenter,
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-                tonalElevation = 2.dp,
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+                tonalElevation = 3.dp,
+                color = cs.surfaceContainer,
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 24.dp),
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Spacer(Modifier.height(12.dp))
-
+                    // Drag handle
                     Box(
                         modifier = Modifier
-                            .width(32.dp)
-                            .height(4.dp)
+                            .size(width = 36.dp, height = 4.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(MaterialTheme.colorScheme.outlineVariant)
+                            .background(cs.outlineVariant)
                     )
 
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(20.dp))
 
+                    // Shield badge
                     Surface(
-                        modifier = Modifier.size(56.dp),
+                        modifier = Modifier.size(64.dp),
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
+                        color = cs.tertiaryContainer,
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Outlined.Shield,
                                 contentDescription = null,
-                                modifier = Modifier.size(28.dp),
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(32.dp),
+                                tint = cs.onTertiaryContainer,
                             )
                         }
                     }
 
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(14.dp))
 
                     Text(
-                        text = "Superuser Request",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        text = stringResource(R.string.su_request_title),
+                        style = typo.headlineSmall,
+                        color = cs.onSurface,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = stringResource(R.string.su_request_action_full_root),
+                        style = typo.labelLarge,
+                        color = cs.tertiary,
                     )
 
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(18.dp))
 
+                    // App card
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        shape = RoundedCornerShape(24.dp),
+                        color = cs.surfaceContainerHigh,
                     ) {
                         Row(
                             modifier = Modifier.padding(16.dp),
@@ -223,7 +279,7 @@ class SuRequestActivity : ComponentActivity() {
                                     val bmp = Bitmap.createBitmap(
                                         appIcon.intrinsicWidth.coerceAtLeast(1),
                                         appIcon.intrinsicHeight.coerceAtLeast(1),
-                                        Bitmap.Config.ARGB_8888
+                                        Bitmap.Config.ARGB_8888,
                                     )
                                     val canvas = Canvas(bmp)
                                     appIcon.setBounds(0, 0, canvas.width, canvas.height)
@@ -234,8 +290,8 @@ class SuRequestActivity : ComponentActivity() {
                                     bitmap = bitmap,
                                     contentDescription = appLabel,
                                     modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(RoundedCornerShape(12.dp))
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(14.dp)),
                                 )
                                 Spacer(Modifier.width(14.dp))
                             }
@@ -243,112 +299,152 @@ class SuRequestActivity : ComponentActivity() {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = appLabel,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    style = typo.titleMedium,
+                                    color = cs.onSurface,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
                                     text = packageName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = typo.bodySmall,
+                                    color = cs.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = stringResource(R.string.su_request_uid_format, uid),
+                                    style = typo.labelSmall,
+                                    color = cs.onSurfaceVariant,
                                 )
                             }
                         }
                     }
 
-                    Spacer(Modifier.height(16.dp))
-
-                    Text(
-                        text = "is requesting superuser access",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
-
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(14.dp))
 
                     LinearProgressIndicator(
                         progress = { progress },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp)),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = cs.tertiary,
+                        trackColor = cs.surfaceContainerHighest,
                     )
-
-                    Spacer(Modifier.height(4.dp))
-
+                    Spacer(Modifier.height(6.dp))
                     Text(
-                        text = "${countdown}s",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = stringResource(R.string.su_request_auto_deny_format, countdown),
+                        style = typo.labelMedium,
+                        color = cs.onSurfaceVariant,
                     )
 
                     Spacer(Modifier.height(20.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        FilledTonalButton(
-                            onClick = onDeny,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(52.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                            ),
-                        ) {
-                            Text("Deny", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    // 2x2 expressive button grid: Allow Always / Allow Once on
+                    // top, Deny Once / Deny Always on the bottom. The pill
+                    // (20dp) corner radius is the single most visible
+                    // "Expressive" cue on the sheet.
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Button(
+                                onClick = { onDecision(SuDecision.ALLOW_ALWAYS) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(56.dp),
+                                shape = RoundedCornerShape(20.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.su_request_allow_always),
+                                    style = typo.labelLarge,
+                                )
+                            }
+                            FilledTonalButton(
+                                onClick = { onDecision(SuDecision.ALLOW_ONCE) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(56.dp),
+                                shape = RoundedCornerShape(20.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.su_request_allow_once),
+                                    style = typo.labelLarge,
+                                )
+                            }
                         }
-
-                        Button(
-                            onClick = onGrant,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(52.dp),
-                            shape = RoundedCornerShape(16.dp),
-                        ) {
-                            Text("Grant", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            FilledTonalButton(
+                                onClick = { onDecision(SuDecision.DENY_ONCE) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(52.dp),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = cs.surfaceContainerHigh,
+                                    contentColor = cs.onSurface,
+                                ),
+                            ) {
+                                Text(text = stringResource(R.string.su_request_deny_once))
+                            }
+                            OutlinedButton(
+                                onClick = { onDecision(SuDecision.DENY_ALWAYS) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(52.dp),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = cs.error,
+                                ),
+                            ) {
+                                Text(text = stringResource(R.string.su_request_deny_always))
+                            }
                         }
                     }
 
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(16.dp))
                 }
             }
         }
     }
 
-    private fun decide(allow: Boolean, appKey: String) {
+    /**
+     * Maps the user's chosen [SuDecision] to the (allow, persist) tuple and
+     * dispatches both the kernel allowlist write (when persisting) and the
+     * daemon reply.
+     *
+     * Ordering is important: `Natives.setAppProfile` is called BEFORE
+     * `execKsud("su-reply ...")` so that by the time the daemon tells the
+     * blocked request-client to re-exec `/system/bin/su`, the uid is already on
+     * the kernel allowlist and the normal (non-request) sucompat path grants
+     * root on the second exec. See the task's end-to-end blocker notes - this
+     * manager-side ordering is the piece that stays correct even once the ksud
+     * side of the chain lands.
+     */
+    private fun decide(decision: SuDecision, appKey: String) {
         if (decided) return
         decided = true
         timer?.cancel()
 
+        val allow = decision == SuDecision.ALLOW_ONCE || decision == SuDecision.ALLOW_ALWAYS
+        val persist = decision == SuDecision.ALLOW_ALWAYS || decision == SuDecision.DENY_ALWAYS
+
         CoroutineScope(Dispatchers.IO).launch {
-            if (allow) {
-                val granted = runCatching {
+            if (persist) {
+                val ok = runCatching {
                     Natives.setAppProfile(
                         Natives.Profile(
                             name = appKey,
                             currentUid = uid,
-                            allowSu = true,
+                            allowSu = allow,
                         )
                     )
                 }.getOrDefault(false)
-                if (!granted) Log.e(TAG, "failed to set app profile for uid=$uid")
+                if (!ok) Log.e(TAG, "failed to set app profile for uid=$uid allow=$allow")
             }
 
-            val decision = if (allow) "allow" else "deny"
-            val ok = runCatching { execKsud("su-reply --id $reqId --$decision") }
+            val reply = if (allow) "allow" else "deny"
+            val delivered = runCatching { execKsud("su-reply --id $reqId --$reply") }
                 .getOrDefault(false)
-            if (!ok) Log.e(TAG, "failed to deliver su decision ($decision) for #$reqId")
+            if (!delivered) Log.e(TAG, "failed to deliver su decision ($reply) for #$reqId")
 
             runOnUiThread { finish() }
         }

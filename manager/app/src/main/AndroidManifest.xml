@@ -64,7 +64,7 @@
             android:launchMode="singleTop"
             android:noHistory="true"
             android:taskAffinity="${applicationId}.surequest"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+            android:theme="@style/Theme.KernelSU.SuRequest" />
 
         <activity
             android:name=".ui.webui.WebUIActivity"
