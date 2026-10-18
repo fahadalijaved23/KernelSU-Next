@@ -5,11 +5,13 @@
 #ifdef __aarch64__
 
 #include "../patch_memory.h"
+#include "compat/jailbreak.h"
 #include "klog.h" // IWYU pragma: keep
 #include "linux/cpumask.h"
 #include "linux/gfp.h" // IWYU pragma: keep
 #include "linux/uaccess.h"
 #include "linux/stop_machine.h"
+#include "linux/jump_label.h"
 #include "asm/cacheflush.h"
 #include "asm-generic/fixmap.h"
 
@@ -192,6 +194,24 @@ static int ksu_patch_text_cb(void *arg)
 
 int ksu_patch_text(void *dst, void *src, size_t len, int flags)
 {
+    /* Samsung RKP traps any kernel-text write to sys_call_table (and other
+     * rodata regions it protects) at EL2, so our stop_machine+fixmap path
+     * returns -EFAULT and the dispatcher install fails. Divert pointer-sized
+     * writes (which is exactly how every function-pointer slot gets patched -
+     * syscall table, LSM hook slots, selinux fops, etc.) into the branch-patch
+     * route that writes into the TARGET function's own .text preamble via
+     * aarch64_insn_patch_text. That's the fixmap/stop_machine path kprobes
+     * use, which RKP sanctions: the slot still points at its original symbol,
+     * but the first thing that symbol does is `B ksu_syscall_dispatcher` (or
+     * whichever stub we installed), so the caller still ends up in our code.
+     *
+     * ksu_rkp_key only arms on Samsung (rkp_jb_init in compat/rkp.c flips it
+     * only when find_kernel_symbol_exact("rkp_started") succeeds); on every
+     * other kernel this is a NOP jump via static_branch_unlikely and the
+     * normal stop_machine path runs unchanged. */
+    if (static_branch_unlikely(&ksu_rkp_key) && len == sizeof(void *))
+        return ksu_rkp_branch_patch(dst, src);
+
     struct patch_text_info info = {
         .dst = dst,
         .src = src,
