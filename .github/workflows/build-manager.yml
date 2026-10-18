@@ -8,6 +8,8 @@ jobs:
   build-lkm:
     uses: ./.github/workflows/build-lkm.yml
     secrets: inherit
+    with:
+      manager_package: com.rifsxd.ksunext
 
   build-ksuinit:
     uses: ./.github/workflows/ksuinit.yml

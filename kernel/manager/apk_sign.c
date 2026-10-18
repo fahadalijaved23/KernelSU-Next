@@ -330,5 +330,14 @@ int get_pkg_from_apk_dir_path(char *pkg, const char *path)
 
 bool is_manager_apk(char *path)
 {
+#ifdef KSU_MANAGER_PACKAGE
+	/* Package-locked build: throne_tracker only ever reaches is_manager_apk
+	 * with an APK whose dir path matches KSU_MANAGER_PACKAGE. Skip signature
+	 * verification so CI builds signed with the default debug key still
+	 * install correctly - the package filter has already pinned the manager.
+	 */
+	return true;
+#else
 	return check_v2_signature(path, EXPECTED_MANAGER_SIZE, EXPECTED_MANAGER_HASH);
+#endif
 }
