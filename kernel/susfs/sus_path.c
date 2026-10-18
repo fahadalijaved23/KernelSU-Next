@@ -25,7 +25,6 @@
  * equivalent here on purpose - see the note above sus_path_inode_hidden().
  */
 #include <linux/module.h>
-#include "compat/jailbreak.h"
 #include <linux/delay.h>	/* ndelay, for the timing cover */
 #include <linux/random.h>	/* prandom_u32_max, for its jitter */
 #include <linux/tracepoint.h>
@@ -331,7 +330,7 @@ static void sus_path_save_caller_cred(void)
     sus_path_pending_cred = new;
     mutex_unlock(&sus_path_cred_lock);
     if (old)
-        ksu_put_cred(old);
+        put_cred(old);
 }
 
 /* Returns the cred revert_creds() wants, and stores in @borrowed the reference THIS call took.
@@ -362,7 +361,7 @@ static void sus_path_revert_creds(const struct cred *saved, const struct cred *b
     if (saved)
         revert_creds(saved);
     if (borrowed)
-        ksu_put_cred(borrowed);
+        put_cred(borrowed);
 }
 
 static void sus_path_drop_caller_cred(void)
@@ -374,7 +373,7 @@ static void sus_path_drop_caller_cred(void)
     sus_path_pending_cred = NULL;
     mutex_unlock(&sus_path_cred_lock);
     if (old)
-        ksu_put_cred(old);
+        put_cred(old);
 }
 
 /* The saved creds are only needed while a rule is still waiting for its walk.  Release them as
@@ -406,7 +405,7 @@ static void sus_path_maybe_drop_caller_cred(void)
     }
     mutex_unlock(&sus_path_cred_lock);
     if (old)
-        ksu_put_cred(old);
+        put_cred(old);
 }
 
 /* What the pending machinery did, for hide_list: "still pending" has to be
