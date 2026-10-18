@@ -603,7 +603,7 @@ pub fn run() -> Result<()> {
     // var `KSU_SU_REQUEST=<uid>` set. In that mode we are the request client:
     // ask the sudaemon to show the manager popup, and on allow re-exec
     // `/system/bin/su` so the kernel takes the normal sucompat allowlist path.
-    if let Ok(uid_str) = std::env::var("KSU_SU_REQUEST") {
+    if let std::result::Result::Ok(uid_str) = std::env::var("KSU_SU_REQUEST") {
         log::info!("ksud invoked as su-request client, uid={uid_str}");
         match uid_str.parse::<u32>() {
             Result::Ok(uid) => match crate::su_request::request_decision(uid) {
