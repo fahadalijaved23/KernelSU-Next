@@ -107,15 +107,34 @@ static void ksu_sys_enter_handler(void *data, struct pt_regs *regs, long id)
     if (ksu_dispatcher_nr < 0) {
         /* Samsung fallback: the dispatcher could not be installed (RKP blocked
          * the syscall-table write), so there is no way to intercept a hooked
-         * syscall's return. Still invoke watch-type handlers inline before the
-         * real syscall runs so the manager can get its driver fd installed via
-         * setresuid. Side effects (fd install, task-tracepoint flag, kernel
-         * umount gating) persist on the current task across the syscall; the
-         * real syscall then runs normally and finishes with the new uid. */
+         * syscall's return via the dispatcher. Instead, call watch handlers
+         * inline (setresuid - the manager's driver fd is installed this way)
+         * and rewrite the user's pt_regs in place for the sucompat hooks so
+         * the kernel's own syscall dispatch runs the ONE modified syscall. */
         if (id == __NR_setresuid && ksu_has_syscall_hook(id)) {
             struct pt_regs *current_regs = task_pt_regs(current);
             uid_t new_uid = (uid_t)PT_REGS_SYSCALL_PARM1(current_regs);
             ksu_handle_setresuid(current_uid().val, new_uid);
+        } else if (id == __NR_execve && ksu_has_syscall_hook(id)) {
+            struct pt_regs *current_regs = task_pt_regs(current);
+            if (ksu_samsung_handle_execve_redirect(current_regs, false)) {
+                /* Regs have been rewritten into an execveat-style call.
+                 * Switch syscallno so the kernel dispatches to execveat. */
+#if defined(__aarch64__)
+                current_regs->syscallno = __NR_execveat;
+#elif defined(__x86_64__)
+                current_regs->orig_ax = __NR_execveat;
+#elif defined(__riscv)
+                ksu_riscv_redirect_syscall(current_regs, id, __NR_execveat);
+#endif
+            }
+        } else if (id == __NR_execveat && ksu_has_syscall_hook(id)) {
+            struct pt_regs *current_regs = task_pt_regs(current);
+            ksu_samsung_handle_execve_redirect(current_regs, true);
+        } else if ((id == __NR_faccessat || id == __NR_newfstatat) &&
+                   ksu_has_syscall_hook(id)) {
+            struct pt_regs *current_regs = task_pt_regs(current);
+            ksu_samsung_su_access_redirect(current_regs);
         }
         return;
     }
