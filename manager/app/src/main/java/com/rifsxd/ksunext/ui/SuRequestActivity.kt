@@ -214,64 +214,67 @@ class SuRequestActivity : ComponentActivity() {
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
                 tonalElevation = 3.dp,
                 color = cs.surfaceContainer,
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     // Drag handle
                     Box(
                         modifier = Modifier
-                            .size(width = 36.dp, height = 4.dp)
+                            .size(width = 32.dp, height = 4.dp)
                             .clip(RoundedCornerShape(2.dp))
                             .background(cs.outlineVariant)
                     )
 
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(12.dp))
 
-                    // Shield badge
-                    Surface(
-                        modifier = Modifier.size(64.dp),
-                        shape = CircleShape,
-                        color = cs.tertiaryContainer,
+                    // Compact header: shield icon inline with title
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Outlined.Shield,
-                                contentDescription = null,
-                                modifier = Modifier.size(32.dp),
-                                tint = cs.onTertiaryContainer,
+                        Surface(
+                            modifier = Modifier.size(36.dp),
+                            shape = CircleShape,
+                            color = cs.tertiaryContainer,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Shield,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = cs.onTertiaryContainer,
+                                )
+                            }
+                        }
+                        Column {
+                            Text(
+                                text = stringResource(R.string.su_request_title),
+                                style = typo.titleMedium,
+                                color = cs.onSurface,
+                            )
+                            Text(
+                                text = stringResource(R.string.su_request_action_full_root),
+                                style = typo.labelSmall,
+                                color = cs.tertiary,
                             )
                         }
                     }
 
-                    Spacer(Modifier.height(14.dp))
-
-                    Text(
-                        text = stringResource(R.string.su_request_title),
-                        style = typo.headlineSmall,
-                        color = cs.onSurface,
-                        textAlign = TextAlign.Center,
-                    )
-                    Text(
-                        text = stringResource(R.string.su_request_action_full_root),
-                        style = typo.labelLarge,
-                        color = cs.tertiary,
-                    )
-
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(12.dp))
 
                     // App card
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(24.dp),
+                        shape = RoundedCornerShape(18.dp),
                         color = cs.surfaceContainerHigh,
                     ) {
                         Row(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             if (appIcon != null) {
@@ -290,16 +293,16 @@ class SuRequestActivity : ComponentActivity() {
                                     bitmap = bitmap,
                                     contentDescription = appLabel,
                                     modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(RoundedCornerShape(14.dp)),
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(10.dp)),
                                 )
-                                Spacer(Modifier.width(14.dp))
+                                Spacer(Modifier.width(12.dp))
                             }
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = appLabel,
-                                    style = typo.titleMedium,
+                                    style = typo.titleSmall,
                                     color = cs.onSurface,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -311,92 +314,65 @@ class SuRequestActivity : ComponentActivity() {
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
-                                Text(
-                                    text = stringResource(R.string.su_request_uid_format, uid),
-                                    style = typo.labelSmall,
-                                    color = cs.onSurfaceVariant,
-                                )
                             }
+
+                            Text(
+                                text = stringResource(R.string.su_request_uid_format, uid),
+                                style = typo.labelSmall,
+                                color = cs.onSurfaceVariant,
+                            )
                         }
                     }
 
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(10.dp))
 
                     LinearProgressIndicator(
                         progress = { progress },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp)),
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
                         color = cs.tertiary,
                         trackColor = cs.surfaceContainerHighest,
                     )
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         text = stringResource(R.string.su_request_auto_deny_format, countdown),
-                        style = typo.labelMedium,
+                        style = typo.labelSmall,
                         color = cs.onSurfaceVariant,
                     )
 
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(14.dp))
 
-                    // 2x2 expressive button grid: Allow Always / Allow Once on
-                    // top, Deny Once / Deny Always on the bottom. The pill
-                    // (20dp) corner radius is the single most visible
-                    // "Expressive" cue on the sheet.
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Button(
-                                onClick = { onDecision(SuDecision.ALLOW_ALWAYS) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(56.dp),
-                                shape = RoundedCornerShape(20.dp),
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.su_request_allow_always),
-                                    style = typo.labelLarge,
-                                )
-                            }
-                            FilledTonalButton(
-                                onClick = { onDecision(SuDecision.ALLOW_ONCE) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(56.dp),
-                                shape = RoundedCornerShape(20.dp),
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.su_request_allow_once),
-                                    style = typo.labelLarge,
-                                )
-                            }
+                    // Simple Allow / Deny - both persist a profile. "Once"
+                    // variants are architecturally broken on KernelSU-Next:
+                    // without a persistent profile the kernel re-routes the
+                    // next su exec through the request path, so Allow Once
+                    // loops the popup forever instead of granting root.
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedButton(
+                            onClick = { onDecision(SuDecision.DENY_ALWAYS) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = cs.error,
+                            ),
+                        ) {
+                            Text(text = stringResource(R.string.su_request_deny))
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            FilledTonalButton(
-                                onClick = { onDecision(SuDecision.DENY_ONCE) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(52.dp),
-                                shape = RoundedCornerShape(20.dp),
-                                colors = ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = cs.surfaceContainerHigh,
-                                    contentColor = cs.onSurface,
-                                ),
-                            ) {
-                                Text(text = stringResource(R.string.su_request_deny_once))
-                            }
-                            OutlinedButton(
-                                onClick = { onDecision(SuDecision.DENY_ALWAYS) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(52.dp),
-                                shape = RoundedCornerShape(20.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = cs.error,
-                                ),
-                            ) {
-                                Text(text = stringResource(R.string.su_request_deny_always))
-                            }
+                        Button(
+                            onClick = { onDecision(SuDecision.ALLOW_ALWAYS) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp),
+                            shape = RoundedCornerShape(16.dp),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.su_request_allow),
+                                style = typo.labelLarge,
+                            )
                         }
                     }
 
