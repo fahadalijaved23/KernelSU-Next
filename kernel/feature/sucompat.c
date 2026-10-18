@@ -451,7 +451,7 @@ bool ksu_samsung_handle_execve_redirect(struct pt_regs *regs, bool execveat)
 	argv_user = execveat ?
 		(const char __user *const __user *)PT_REGS_PARM3(regs) :
 		(const char __user *const __user *)PT_REGS_PARM2(regs);
-	envp = execveat ? PT_REGS_PARM4(regs) : PT_REGS_PARM3(regs);
+	envp = execveat ? PT_REGS_SYSCALL_PARM4(regs) : PT_REGS_PARM3(regs);
 	exec_envp = envp;
 
 	tmp_fd = get_unused_fd_flags(O_CLOEXEC);
