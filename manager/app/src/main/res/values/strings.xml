@@ -383,4 +383,8 @@
     <string name="module_unknown">Unknown Module</string>
     <string name="template_example_title">Example</string>
     <string name="template_example_description">This is an example template</string>
+
+    <string name="su_request_title">Superuser Request</string>
+    <string name="su_request_grant">Grant</string>
+    <string name="su_request_deny">Deny</string>
 </resources>

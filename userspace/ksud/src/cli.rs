@@ -39,6 +39,24 @@ enum Commands {
     #[command(hide = true)]
     Sulogd,
 
+    /// Run the su-request broker daemon. Not for user; started automatically.
+    #[command(hide = true)]
+    Sudaemon,
+
+    /// Deliver a su-request decision to the daemon. Used by the manager.
+    #[command(hide = true)]
+    SuReply {
+        /// Request id passed to the manager in the prompt intent
+        #[arg(long)]
+        id: u64,
+        /// Allow root for the requesting app
+        #[arg(long, conflicts_with = "deny")]
+        allow: bool,
+        /// Deny root for the requesting app
+        #[arg(long)]
+        deny: bool,
+    },
+
     /// Trigger `boot-complete` event
     BootCompleted,
 
@@ -739,6 +757,8 @@ pub fn run() -> Result<()> {
             Ok(())
         }
         Commands::Sulogd => sulog::run_sulogd(),
+        Commands::Sudaemon => crate::su_request::run_sudaemon(),
+        Commands::SuReply { id, allow, deny: _ } => crate::su_request::send_reply(id, allow),
         Commands::Profile { command } => match command {
             Profile::Get { package, uid } => crate::profile::get_profile(&package, uid),
             Profile::Set { file } => crate::profile::set_profile(file.as_deref()),

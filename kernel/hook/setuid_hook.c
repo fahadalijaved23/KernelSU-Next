@@ -13,6 +13,7 @@
 #include <linux/uidgid.h>
 
 #include "policy/allowlist.h"
+#include "feature/sucompat.h"
 #include "hook/setuid_hook.h"
 #include "klog.h" // IWYU pragma: keep
 #include "manager/manager_identity.h"
@@ -38,7 +39,7 @@ int ksu_handle_setresuid(uid_t old_uid, uid_t new_uid)
         return 0;
     }
 
-    if (ksu_is_allow_uid_for_current(new_uid)) {
+    if (ksu_is_allow_uid_for_current(new_uid) || ksu_su_request_should_trace(new_uid)) {
         if (current->seccomp.mode == SECCOMP_MODE_FILTER &&
             current->seccomp.filter) {
             spin_lock_irq(&current->sighand->siglock);
