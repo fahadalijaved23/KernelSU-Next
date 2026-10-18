@@ -20,6 +20,9 @@
 #include "hook/setuid_hook.h"
 #include "hook/syscall_hook.h"
 #include "hook/syscall_event_bridge.h"
+#if defined(__aarch64__)
+#include "hook/arm64/samsung_kprobes.h"
+#endif
 #if defined(__riscv)
 #include "hook/riscv64/syscall_regs.h"
 #endif
@@ -168,6 +171,24 @@ void __init ksu_syscall_hook_manager_init(void)
     }
 #endif
 
+#if defined(__aarch64__)
+    /*
+     * Samsung RKP path: if the dispatcher install failed, the sys_enter
+     * tracepoint above has no safe route for exec/stat family syscalls and
+     * will skip them. Fall back to kprobes on the SYSCALL_DEFINE wrappers,
+     * which run in process context where sleeping (filp_open, alloc_uid,
+     * ksu_commit_creds under KDP) is safe.
+     *
+     * Deliberately gated on the runtime check only -- a successful
+     * dispatcher install means the normal dispatch mechanism is already
+     * covering these syscalls and we must NOT double-handle them.
+     */
+    if (ksu_dispatcher_nr < 0) {
+        pr_info("hook_manager: dispatcher unavailable, enabling Samsung kprobe fallback\n");
+        ksu_samsung_kprobes_init();
+    }
+#endif
+
     ksu_setuid_hook_init();
     ksu_sucompat_init();
     ksu_avc_spoof_init();
@@ -180,6 +201,15 @@ void __exit ksu_syscall_hook_manager_exit(void)
     unregister_trace_sys_enter(ksu_sys_enter_handler, NULL);
     tracepoint_synchronize_unregister();
     pr_info("hook_manager: sys_enter tracepoint unregistered\n");
+#endif
+
+#if defined(__aarch64__)
+    /*
+     * Idempotent: ksu_samsung_kprobes_exit() unregisters only the probes
+     * it actually installed, so this is safe even on the non-Samsung path
+     * where init was skipped.
+     */
+    ksu_samsung_kprobes_exit();
 #endif
 
 #ifdef CONFIG_KRETPROBES

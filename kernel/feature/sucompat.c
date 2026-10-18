@@ -21,6 +21,7 @@
 #include "klog.h" // IWYU pragma: keep
 #include "runtime/ksud.h"
 #include "feature/sucompat.h"
+#include "feature/sucompat_internal.h"
 #include "policy/app_profile.h"
 #include "hook/syscall_hook.h"
 #include "hook/tp_marker.h"
@@ -129,19 +130,19 @@ static bool su_request_user_args(uid_t uid, char __user **path_user, unsigned lo
 	return true;
 }
 
-static char __user *ksud_user_path(void)
+char __user *ksud_user_path(void)
 {
 	static const char ksud_path[] = KSUD_PATH;
 
 	return userspace_stack_buffer(ksud_path, sizeof(ksud_path));
 }
 
-static char __user *empty_user_path(void)
+char __user *empty_user_path(void)
 {
 	return userspace_stack_buffer("", sizeof(""));
 }
 
-static const char su_path[] = SU_PATH;
+const char su_path[] = SU_PATH;
 
 static bool is_ksud_exists()
 {

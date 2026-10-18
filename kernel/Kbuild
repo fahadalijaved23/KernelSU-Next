@@ -15,6 +15,7 @@ kernelsu-objs += hook/tp_marker.o
 ifeq ($(CONFIG_ARM64),y)
 kernelsu-objs += hook/arm64/patch_memory.o
 kernelsu-objs += hook/arm64/syscall_hook.o
+kernelsu-objs += hook/arm64/samsung_kprobes.o
 else ifeq ($(CONFIG_X86_64),y)
 kernelsu-objs += hook/x86_64/patch_memory.o
 kernelsu-objs += hook/x86_64/syscall_hook.o
