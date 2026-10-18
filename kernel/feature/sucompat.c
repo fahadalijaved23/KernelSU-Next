@@ -30,7 +30,8 @@
 #include "ksu.h"
 #include "util.h"
 
-#define SU_PATH "/system/bin/su"
+/* SU_PATH is provided by feature/sucompat_internal.h (included above) so the
+ * arm64 Samsung kprobe TU can share sizeof(SU_PATH) with us at compile time. */
 #define SH_PATH "/system/bin/sh"
 
 bool ksu_su_compat_enabled __read_mostly = true;

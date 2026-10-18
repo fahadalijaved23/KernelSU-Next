@@ -13,8 +13,11 @@
  * out of the public sucompat.h so they do not become a general-purpose API.
  */
 
-/* NUL-terminated "/system/bin/su". Shared constant used for comparison. */
-extern const char su_path[];
+/* NUL-terminated "/system/bin/su". Shared constant used for comparison.
+ * SU_PATH is the string literal (so sizeof is a constant expression at
+ * compile time); su_path is the actual symbol defined in sucompat.c. */
+#define SU_PATH "/system/bin/su"
+extern const char su_path[sizeof(SU_PATH)];
 
 /* Returns a __user pointer into current's user stack holding "/data/adb/ksud". */
 char __user *ksud_user_path(void);
