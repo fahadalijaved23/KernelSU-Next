@@ -1,4 +1,5 @@
 #include "selinux.h"
+#include "compat/jailbreak.h"
 #include "linux/cred.h"
 #include "linux/sched.h"
 #include "objsec.h"
@@ -309,5 +310,5 @@ void escape_to_root_for_adb_root(void)
         abort_creds(cred);
         return;
     }
-    commit_creds(cred);
+    ksu_commit_creds(cred);
 }

@@ -1,4 +1,5 @@
 #include "selinux_hide.h"
+#include "compat/jailbreak.h"
 #include "infra/symbol_resolver.h"
 #include "linux/jump_label.h"
 #include "linux/rcupdate.h"
@@ -298,7 +299,7 @@ static int __nocfi my_setprocattr(const char *name, void *value, size_t size)
 
     tsec->sid = sid;
 
-    commit_creds(new);
+    ksu_commit_creds(new);
     return size;
 
 abort_change:
