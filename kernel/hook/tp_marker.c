@@ -8,6 +8,7 @@
 
 #include "policy/allowlist.h"
 #include "feature/sucompat.h"
+#include "compat/jailbreak.h"
 #include "klog.h" // IWYU pragma: keep
 #include "selinux/selinux.h"
 
@@ -105,7 +106,7 @@ void ksu_mark_running_process_locked(void)
             pr_info("tp_marker: unmark process: pid:%d, uid: %d, comm:%s\n",
                     t->pid, uid, t->comm);
         }
-        put_cred(cred);
+        ksu_put_cred(cred);
     }
     read_unlock(&tasklist_lock);
 }
