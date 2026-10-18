@@ -1,5 +1,6 @@
 #include <linux/bsearch.h>
 #include <linux/kallsyms.h>
+#include <linux/kprobes.h>
 #include <linux/module.h>
 #include <linux/mm.h>
 #include <linux/sched/signal.h>
@@ -374,17 +375,37 @@ int __nocfi ksu_lookup_kernel_symbols(const char *const *names, unsigned long *a
     return ret;
 }
 
+static unsigned long ksu_kprobe_lookup(const char *name)
+{
+    unsigned long addr = 0;
+    struct kprobe kp = { .symbol_name = name };
+
+    if (register_kprobe(&kp) < 0)
+        return 0;
+    addr = (unsigned long)kp.addr;
+    unregister_kprobe(&kp);
+    return addr;
+}
+
 void __init ksu_init_symbol_resolver()
 {
 #if !ALWAYS_HAVE_ON_EACH_SYMBOL
-    kallsyms_on_each_symbol_fn = find_kernel_symbol_exact("kallsyms_on_each_symbol");
-    if (!kallsyms_on_each_symbol_fn) {
+    kallsyms_on_each_symbol_fn = (void *)ksu_kprobe_lookup("kallsyms_on_each_symbol");
+    if (!kallsyms_on_each_symbol_fn)
+        kallsyms_on_each_symbol_fn = find_kernel_symbol_exact("kallsyms_on_each_symbol");
+    if (kallsyms_on_each_symbol_fn) {
+        pr_info("kallsyms_on_each_symbol resolved\n");
+    } else {
         pr_warn("kallsyms_on_each_symbol not found!\n");
     }
 #endif
 #if HAVE_ON_EACH_MATCH_SYMBOL
-    kallsyms_on_each_match_symbol_fn = find_kernel_symbol_exact("kallsyms_on_each_match_symbol");
-    if (!kallsyms_on_each_match_symbol_fn) {
+    kallsyms_on_each_match_symbol_fn = (void *)ksu_kprobe_lookup("kallsyms_on_each_match_symbol");
+    if (!kallsyms_on_each_match_symbol_fn)
+        kallsyms_on_each_match_symbol_fn = find_kernel_symbol_exact("kallsyms_on_each_match_symbol");
+    if (kallsyms_on_each_match_symbol_fn) {
+        pr_info("kallsyms_on_each_match_symbol resolved\n");
+    } else {
         pr_warn("kallsyms_on_each_match_symbol not found!\n");
     }
 #endif

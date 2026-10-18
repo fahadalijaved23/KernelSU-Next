@@ -157,27 +157,37 @@ void kdp_jb_init(void)
 {
     prepare_ro_creds_fn = (prepare_ro_creds_t)ksu_resolve_symbol_for_functable_hook("prepare_ro_creds");
     kdp_assign_pgd_fn = (kdp_assign_pgd_t)ksu_resolve_symbol_for_functable_hook("kdp_assign_pgd");
-    if (!prepare_ro_creds_fn || !kdp_assign_pgd_fn)
+    if (!prepare_ro_creds_fn || !kdp_assign_pgd_fn) {
+        pr_info("KSU: KDP not available (prepare_ro_creds=%d, kdp_assign_pgd=%d)\n",
+                !!prepare_ro_creds_fn, !!kdp_assign_pgd_fn);
         return;
+    }
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
     kdp_usecount_sub_and_test_fn =
         (kdp_usecount_sub_and_test_t)ksu_resolve_symbol_for_functable_hook("kdp_usecount_sub_and_test");
-    if (!kdp_usecount_sub_and_test_fn)
+    if (!kdp_usecount_sub_and_test_fn) {
+        pr_info("KSU: KDP missing kdp_usecount_sub_and_test\n");
         return;
+    }
 #else
     kdp_usecount_dec_and_test_fn =
         (kdp_usecount_dec_and_test_t)ksu_resolve_symbol_for_functable_hook("kdp_usecount_dec_and_test");
-    if (!kdp_usecount_dec_and_test_fn)
+    if (!kdp_usecount_dec_and_test_fn) {
+        pr_info("KSU: KDP missing kdp_usecount_dec_and_test\n");
         return;
+    }
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
     inc_rlimit_ucounts_fn = (inc_rlimit_ucounts_t)ksu_resolve_symbol_for_functable_hook("inc_rlimit_ucounts");
     dec_rlimit_ucounts_fn = (dec_rlimit_ucounts_t)ksu_resolve_symbol_for_functable_hook("dec_rlimit_ucounts");
-    if (!inc_rlimit_ucounts_fn || !dec_rlimit_ucounts_fn)
+    if (!inc_rlimit_ucounts_fn || !dec_rlimit_ucounts_fn) {
+        pr_info("KSU: KDP missing rlimit_ucounts (inc=%d, dec=%d)\n",
+                !!inc_rlimit_ucounts_fn, !!dec_rlimit_ucounts_fn);
         return;
+    }
 #endif
     static_branch_enable(&ksu_kdp_key);
-    pr_info("KSU: Samsung KDP detected\n");
+    pr_info("KSU: Samsung KDP detected and enabled\n");
 }
 
 void kdp_jb_exit(void)

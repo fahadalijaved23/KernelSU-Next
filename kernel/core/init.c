@@ -135,14 +135,14 @@ int __init kernelsu_init(void)
 		pr_alert("shell is allowed at init!");
 	}
 
+	ksu_init_symbol_resolver();
+	init_jailbreak();
+
 	ksu_cred = prepare_creds();
 	if (!ksu_cred) {
 		pr_err("prepare cred failed!\n");
 		return -ENOSYS;
 	}
-
-	ksu_init_symbol_resolver();
-	init_jailbreak();
 	ksu_syscall_hook_init();
 
 	// Block modules early, before vendor modules are loaded in second stage.
