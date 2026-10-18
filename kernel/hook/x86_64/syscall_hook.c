@@ -54,13 +54,14 @@ static int patch_syscall_table(int nr, sys_call_ptr_t fn)
 
 // Direct syscall table patching: overwrite syscall_table[nr] with fn,
 // save original to *old, and record for restoration at module exit.
-void ksu_syscall_table_hook(int nr, sys_call_ptr_t fn, sys_call_ptr_t *old)
+int ksu_syscall_table_hook(int nr, sys_call_ptr_t fn, sys_call_ptr_t *old)
 {
+    int ret;
     if (ksu_syscall_table == NULL)
-        return;
+        return -ENOENT;
     if (nr < 0 || nr >= __NR_syscalls) {
         pr_info("invalid nr: %d\n", nr);
-        return;
+        return -EINVAL;
     }
 
     mutex_lock(&hooked_entries_lock);
@@ -90,9 +91,10 @@ void ksu_syscall_table_hook(int nr, sys_call_ptr_t fn, sys_call_ptr_t *old)
         }
     }
 
-    patch_syscall_table(nr, fn);
+    ret = patch_syscall_table(nr, fn);
 
     mutex_unlock(&hooked_entries_lock);
+    return ret;
 }
 
 // Restore syscall_table[nr] to its original value and remove from tracking list.
