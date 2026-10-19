@@ -167,7 +167,9 @@ class SuRequestActivity : ComponentActivity() {
             contentAlignment = Alignment.BottomCenter
         ) {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.navigationBars),
                 shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
                 tonalElevation = 2.dp,
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
